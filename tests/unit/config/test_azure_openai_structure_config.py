@@ -83,6 +83,17 @@ class TestAzureOpenAiStructureConfig:
             },
         }
 
+    def test_merge_config(self, config):
+        new_config = config.merge_config(
+            {
+                "prompt_driver": {"azure_deployment": "new-test-gpt-4"},
+                "embedding_driver": {"model": "new-text-embedding-3-small"},
+            }
+        )
+
+        assert new_config.prompt_driver.azure_token == "test-token"
+        assert new_config.embedding_driver.model == "new-text-embedding-3-small"
+
     def test_from_dict(self, config: AzureOpenAiStructureConfig):
         assert AzureOpenAiStructureConfig.from_dict(config.to_dict()).to_dict() == config.to_dict()
 

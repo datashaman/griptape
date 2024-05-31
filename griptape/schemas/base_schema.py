@@ -62,7 +62,7 @@ class BaseSchema(Schema):
             else:
                 raise ValueError(f"Missing type for list field: {field_type}")
         else:
-            FieldClass = cls.DATACLASS_TYPE_MAPPING[field_class]
+            FieldClass = cls.DATACLASS_TYPE_MAPPING.get(field_class, fields.Raw)
 
             return FieldClass(allow_none=optional, load_only=metadata.get("serializable", False))
 

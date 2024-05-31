@@ -2,10 +2,11 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from attrs import define, field, Factory
 from griptape import utils
+from griptape.mixins.serializable_mixin import SerializableMixin
 
 
 @define()
-class BaseTokenizer(ABC):
+class BaseTokenizer(SerializableMixin, ABC):
     MODEL_PREFIXES_TO_MAX_INPUT_TOKENS = {}
     MODEL_PREFIXES_TO_MAX_OUTPUT_TOKENS = {}
 
