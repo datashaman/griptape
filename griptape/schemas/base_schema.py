@@ -34,18 +34,14 @@ class BaseSchema(Schema):
         if issubclass(attrs_cls, SerializableMixin):
             cls._resolve_types(attrs_cls)
             return SubSchema.from_dict(
-                {
-                    a.name: cls._get_field_for_type(a.type)
-                    for a in attrs.fields(attrs_cls)
-                    if a.metadata.get("serializable")
-                },
+                {a.name: cls._get_field_for_type(a.type, a.metadata) for a in attrs.fields(attrs_cls)},
                 name=f"{attrs_cls.__name__}Schema",
             )
         else:
             raise ValueError(f"Class must implement SerializableMixin: {attrs_cls}")
 
     @classmethod
-    def _get_field_for_type(cls, field_type: type) -> fields.Field | fields.Nested:
+    def _get_field_for_type(cls, field_type: type, metadata: dict) -> fields.Field | fields.Nested:
         """Generate a marshmallow Field instance from a Python type.
 
         Args:
@@ -62,13 +58,13 @@ class BaseSchema(Schema):
                 return fields.Nested(cls.from_attrs_cls(field_type), allow_none=optional)
         elif cls.is_list_sequence(field_class):
             if args:
-                return fields.List(cls_or_instance=cls._get_field_for_type(args[0]), allow_none=optional)
+                return fields.List(cls_or_instance=cls._get_field_for_type(args[0], metadata), allow_none=optional)
             else:
                 raise ValueError(f"Missing type for list field: {field_type}")
         else:
             FieldClass = cls.DATACLASS_TYPE_MAPPING[field_class]
 
-            return FieldClass(allow_none=optional)
+            return FieldClass(allow_none=optional, load_only=metadata.get("serializable", False))
 
     @classmethod
     def _get_field_type_info(cls, field_type: type) -> tuple[type, tuple[type, ...], bool]:
