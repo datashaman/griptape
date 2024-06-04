@@ -17,6 +17,7 @@ from griptape.engines import CsvExtractionEngine, JsonExtractionEngine, PromptSu
 from griptape.events import BaseEvent, EventListener
 from griptape.events.finish_structure_run_event import FinishStructureRunEvent
 from griptape.events.start_structure_run_event import StartStructureRunEvent
+from griptape.events.start_task_event import StartTaskEvent
 from griptape.memory import TaskMemory
 from griptape.memory.meta import MetaMemory
 from griptape.memory.structure import ConversationMemory
@@ -205,6 +206,9 @@ class Structure(ABC):
     def publish_event(self, event: BaseEvent, flush: bool = False) -> None:
         for event_listener in self.event_listeners:
             event_listener.publish_event(event, flush)
+
+    def callback_event(self, event: StartTaskEvent) -> None:
+        pass
 
     def context(self, task: BaseTask) -> dict[str, Any]:
         return {"args": self.execution_args, "structure": self}

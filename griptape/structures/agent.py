@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING, Optional
 from attrs import define, field
+from griptape.events.start_task_event import StartTaskEvent
 from griptape.tools import BaseTool
 from griptape.memory.structure import Run
 from griptape.structures import Structure
@@ -9,12 +10,16 @@ from griptape.tasks import PromptTask, ToolkitTask
 if TYPE_CHECKING:
     from griptape.tasks import BaseTask
 
+DEFAULT_CALLBACK_TEMPLATE = "Summarize the action you are taking: {{ response }}"
+
 
 @define
 class Agent(Structure):
     input_template: str = field(default=PromptTask.DEFAULT_INPUT_TEMPLATE)
     tools: list[BaseTool] = field(factory=list, kw_only=True)
     max_meta_memory_entries: Optional[int] = field(default=20, kw_only=True)
+    use_prompt_callbacks: bool = field(default=False, kw_only=True)
+    prompt_callback_template: str = field(default=DEFAULT_CALLBACK_TEMPLATE, kw_only=True)
 
     def __attrs_post_init__(self) -> None:
         super().__attrs_post_init__()
@@ -64,3 +69,9 @@ class Agent(Structure):
             self.conversation_memory.add_run(run)
 
         return self
+
+    def callback_event(self, event: StartTaskEvent) -> None:
+        if self.use_prompt_callbacks and event.task_id != "callback" and event.task_input is not None:
+            PromptTask(
+                f"Summarize your action: {event.task_input}", id="callback", prompt_driver=self.prompt_driver
+            ).execute()
