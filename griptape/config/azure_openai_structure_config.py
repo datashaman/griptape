@@ -134,5 +134,5 @@ class AzureOpenAiStructureConfig(StructureConfig):
             kwargs["vector_store_driver_config"] = dict_merge(
                 __attr_factory_vector_store_driver_config(self), vsd_config # type: ignore
             )
-        self.__attrs_init__(self, **kwargs)  # type: ignore
+        self.__attrs_init__(**kwargs)  # type: ignore
         # fmt: on
