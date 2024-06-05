@@ -14,7 +14,7 @@ from griptape.drivers import (
 )
 
 
-@define(init=False)
+@define
 class StructureConfig(BaseStructureConfig):
     prompt_driver_config: dict = field(
         default={"type": DummyPromptDriver}, kw_only=True, metadata={"serializable": True}
@@ -40,9 +40,3 @@ class StructureConfig(BaseStructureConfig):
     audio_transcription_driver_config: dict = field(
         default={"type": BaseAudioTranscriptionDriver}, kw_only=True, metadata={"serializable": True}
     )
-
-    def __init__(self, **params):
-        if params["type"] is not NOTHING:
-            self.type = params["type"]
-        else:
-            self.type = __attr_factory_type(self)  # type: ignore
