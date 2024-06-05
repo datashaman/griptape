@@ -14,6 +14,7 @@ from griptape.drivers import (
     BaseImageQueryDriver,
     BaseVectorStoreDriver,
 )
+from griptape.utils.dict_utils import dict_merge
 
 
 @define
@@ -38,6 +39,22 @@ class AzureOpenAiStructureConfig(StructureConfig):
         kw_only=True, default=None, metadata={"serializable": False}
     )
     api_key: Optional[str] = field(kw_only=True, default=None, metadata={"serializable": False})
+    prompt_driver_config: dict = field(
+        default=Factory(
+            lambda self: {
+                "type": AzureOpenAiChatPromptDriver,
+                "model": "gpt-4o",
+                "azure_endpoint": self.azure_endpoint,
+                "api_key": self.api_key,
+                "azure_ad_token": self.azure_ad_token,
+                "azure_ad_token_provider": self.azure_ad_token_provider,
+            },
+            takes_self=True,
+        ),
+        kw_only=True,
+        metadata={"serializable": True},
+    )
+
     prompt_driver: BasePromptDriver = field(
         default=Factory(
             lambda self: AzureOpenAiChatPromptDriver(
@@ -100,3 +117,22 @@ class AzureOpenAiStructureConfig(StructureConfig):
         metadata={"serializable": True},
         kw_only=True,
     )
+
+    def __init__(self, **kwargs):
+        # fmt: off
+        if pd_config := kwargs.get("prompt_driver_config") is not None:
+            kwargs["prompt_driver_config"] = dict_merge(__attr_factory_prompt_driver_config(self), pd_config)  # type: ignore
+        if igd_config := kwargs.get("image_generation_driver_config") is not None:
+            kwargs["image_generation_driver_config"] = dict_merge(
+                __attr_factory_image_generation_driver_config(self), igd_config # type: ignore
+            )
+        if iqd_config := kwargs.get("image_query_driver_config") is not None:
+            kwargs["image_query_driver_config"] = dict_merge(__attr_factory_image_query_driver_config(self), iqd_config)  # type: ignore
+        if ed_config := kwargs.get("embedding_driver_config") is not None:
+            kwargs["embedding_driver_config"] = dict_merge(__attr_factory_embedding_driver_config(self), ed_config)  # type: ignore
+        if vsd_config := kwargs.get("vector_store_driver_config") is not None:
+            kwargs["vector_store_driver_config"] = dict_merge(
+                __attr_factory_vector_store_driver_config(self), vsd_config # type: ignore
+            )
+        __attrs_init__(self, **kwargs)  # type: ignore
+        # fmt: on
