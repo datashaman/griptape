@@ -23,7 +23,7 @@ class AzureOpenAiEmbeddingDriver(OpenAiEmbeddingDriver):
     azure_deployment: str = field(
         kw_only=True, default=Factory(lambda self: self.model, takes_self=True), metadata={"serializable": True}
     )
-    azure_endpoint: str = field(kw_only=True, metadata={"serializable": True})
+    azure_endpoint: str = field(kw_only=True, default=None, metadata={"serializable": True})
     azure_ad_token: Optional[str] = field(kw_only=True, default=None, metadata={"serializable": False})
     azure_ad_token_provider: Optional[Callable[[], str]] = field(
         kw_only=True, default=None, metadata={"serializable": False}
@@ -32,17 +32,24 @@ class AzureOpenAiEmbeddingDriver(OpenAiEmbeddingDriver):
     tokenizer: OpenAiTokenizer = field(
         default=Factory(lambda self: OpenAiTokenizer(model=self.model), takes_self=True), kw_only=True
     )
-    client: openai.AzureOpenAI = field(
-        default=Factory(
-            lambda self: openai.AzureOpenAI(
-                organization=self.organization,
-                api_key=self.api_key,
-                api_version=self.api_version,
-                azure_endpoint=self.azure_endpoint,
-                azure_deployment=self.azure_deployment,
-                azure_ad_token=self.azure_ad_token,
-                azure_ad_token_provider=self.azure_ad_token_provider,
-            ),
-            takes_self=True,
-        )
-    )
+    client: openai.AzureOpenAI = field(default=None, kw_only=True, metadata={"serializable": False})
+
+    def __attrs_post_init__(self) -> None:
+        if self.client is None:
+            if (
+                self.azure_endpoint
+                and self.azure_deployment
+                and self.api_version
+                and (self.azure_ad_token or self.azure_ad_token_provider or self.api_key)
+            ):
+                self.client = openai.AzureOpenAI(
+                    self.azure_endpoint,
+                    self.azure_deployment,
+                    self.api_version,
+                    ad_token=self.azure_ad_token,
+                    ad_token_provider=self.azure_ad_token_provider,
+                )
+            else:
+                raise ValueError(
+                    "AzureOpenAiEmbeddingDriver requires azure_endpoint, azure_deployment, api_version, and either azure_ad_token or azure_ad_token_provider or api_key."
+                )
