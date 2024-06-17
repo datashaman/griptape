@@ -77,6 +77,7 @@ class ActivityMixin:
         if activity is None or not getattr(activity, "is_activity", False):
             raise Exception("This method is not an activity.")
         elif getattr(activity, "config")["schema"]:
+            # TODO: probably need to do the parameter-level allowlist/denylist here
             full_schema = {
                 "values": getattr(activity, "config")["schema"].schema if getattr(activity, "config")["schema"] else {}
             }
