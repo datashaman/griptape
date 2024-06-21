@@ -34,65 +34,87 @@ class MarkdownifyWebScraperDriver(BaseWebScraperDriver):
     timeout: Optional[int] = field(default=None, kw_only=True)
 
     def scrape_url(self, url: str) -> TextArtifact:
-        sync_playwright = import_optional_dependency("playwright.sync_api").sync_playwright
-        BeautifulSoup = import_optional_dependency("bs4").BeautifulSoup
-        MarkdownConverter = import_optional_dependency("markdownify").MarkdownConverter
+        try:  # TODO: hack for graceful erroring
+            # find a local file where the name is a hash of the url
+            # if it exists, return the contents of the file
+            # if it doesn't exist, scrape the url and save the contents to the file
+            # return the contents of the file
+            import os
+            import hashlib
 
-        include_links = self.include_links
+            hashed_name = hashlib.md5(url.encode()).hexdigest()
+            if os.path.exists(f"cached_webscraper_output/{hashed_name}.txt"):
+                with open(f"cached_webscraper_output/{hashed_name}.txt") as f:
+                    return TextArtifact(f.read())
 
-        # Custom MarkdownConverter to optionally linked urls. If include_links is False only
-        # the text of the link is returned.
-        class OptionalLinksMarkdownConverter(MarkdownConverter):
-            def convert_a(self, el, text, convert_as_inline):
-                if include_links:
-                    return super().convert_a(el, text, convert_as_inline)
-                return text
+            sync_playwright = import_optional_dependency("playwright.sync_api").sync_playwright
+            BeautifulSoup = import_optional_dependency("bs4").BeautifulSoup
+            MarkdownConverter = import_optional_dependency("markdownify").MarkdownConverter
 
-        with sync_playwright() as p:
-            with p.chromium.launch(headless=True) as browser:
-                page = browser.new_page()
+            include_links = self.include_links
 
-                def skip_loading_images(route):
-                    if route.request.resource_type == "image":
-                        return route.abort()
-                    route.continue_()
+            # Custom MarkdownConverter to optionally linked urls. If include_links is False only
+            # the text of the link is returned.
+            class OptionalLinksMarkdownConverter(MarkdownConverter):
+                def convert_a(self, el, text, convert_as_inline):
+                    if include_links:
+                        return super().convert_a(el, text, convert_as_inline)
+                    return text
 
-                page.route("**/*", skip_loading_images)
+            with sync_playwright() as p:
+                with p.chromium.launch(headless=True) as browser:
+                    page = browser.new_page()
 
-                page.goto(url)
+                    def skip_loading_images(route):
+                        if route.request.resource_type == "image":
+                            return route.abort()
+                        route.continue_()
 
-                # Some websites require a delay before the content is fully loaded
-                # even after the browser has emitted "load" event.
-                if self.timeout:
-                    page.wait_for_timeout(self.timeout)
+                    page.route("**/*", skip_loading_images)
 
-                content = page.content()
+                    page.goto(url)
 
-                if not content:
-                    raise Exception("can't access URL")
+                    # Some websites require a delay before the content is fully loaded
+                    # even after the browser has emitted "load" event.
+                    if self.timeout:
+                        page.wait_for_timeout(self.timeout)
 
-                soup = BeautifulSoup(content, "html.parser")
+                    content = page.content()
 
-                # Remove unwanted elements
-                exclude_selector = ",".join(
-                    self.exclude_tags + [f".{c}" for c in self.exclude_classes] + [f"#{i}" for i in self.exclude_ids]
-                )
-                if exclude_selector:
-                    for s in soup.select(exclude_selector):
-                        s.extract()
+                    if not content:
+                        raise Exception("can't access URL")
 
-                text = OptionalLinksMarkdownConverter().convert_soup(soup)
+                    soup = BeautifulSoup(content, "html.parser")
 
-                # Remove leading and trailing whitespace from the entire text
-                text = text.strip()
+                    # Remove unwanted elements
+                    exclude_selector = ",".join(
+                        self.exclude_tags
+                        + [f".{c}" for c in self.exclude_classes]
+                        + [f"#{i}" for i in self.exclude_ids]
+                    )
+                    if exclude_selector:
+                        for s in soup.select(exclude_selector):
+                            s.extract()
 
-                # Remove trailing whitespace from each line
-                text = re.sub(r"[ \t]+$", "", text, flags=re.MULTILINE)
+                    text = OptionalLinksMarkdownConverter().convert_soup(soup)
 
-                # Indent using 2 spaces instead of tabs
-                text = re.sub(r"(\n?\s*?)\t", r"\1  ", text)
+                    # Remove leading and trailing whitespace from the entire text
+                    text = text.strip()
 
-                # Remove triple+ newlines (keep double newlines for paragraphs)
-                text = re.sub(r"\n\n+", "\n\n", text)
+                    # Remove trailing whitespace from each line
+                    text = re.sub(r"[ \t]+$", "", text, flags=re.MULTILINE)
 
-                return TextArtifact(text)
+                    # Indent using 2 spaces instead of tabs
+                    text = re.sub(r"(\n?\s*?)\t", r"\1  ", text)
+
+                    # Remove triple+ newlines (keep double newlines for paragraphs)
+                    text = re.sub(r"\n\n+", "\n\n", text)
+
+                    # Save the content to a file
+                    with open(f"cached_webscraper_output/{hashed_name}.txt", "w") as f:
+                        f.write(text)
+
+                    return TextArtifact(text)
+        except Exception:
+            # TODO: hack for graceful erroring
+            return TextArtifact(f"Error scraping URL: {url}")

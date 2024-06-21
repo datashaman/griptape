@@ -3,7 +3,6 @@ import concurrent.futures as futures
 from graphlib import TopologicalSorter
 from typing import Any, Optional
 from attrs import define, field, Factory
-from griptape.artifacts import ErrorArtifact
 from griptape.structures import Structure
 from griptape.tasks import BaseTask
 from griptape.memory.structure import Run
@@ -12,6 +11,7 @@ from griptape.memory.structure import Run
 @define
 class Workflow(Structure):
     futures_executor: futures.Executor = field(default=Factory(lambda: futures.ThreadPoolExecutor()), kw_only=True)
+    timeout: Optional[float] = field(default=None, kw_only=True)
 
     @property
     def output_task(self) -> Optional[BaseTask]:
@@ -107,11 +107,13 @@ class Workflow(Structure):
                     futures_list[future] = task
 
             # Wait for all tasks to complete
-            for future in futures.as_completed(futures_list):
-                if isinstance(future.result(), ErrorArtifact):
-                    exit_loop = True
+            for future in futures.as_completed(futures_list, timeout=self.timeout):  # 20 minutes
+                # TODO: fix this somehow
+                pass
+                # if isinstance(future.result(), ErrorArtifact):
+                #     exit_loop = True
 
-                    break
+                #     break
 
         if self.conversation_memory and self.output is not None:
             if isinstance(self.input_task.input, tuple):

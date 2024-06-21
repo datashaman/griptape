@@ -57,7 +57,9 @@ class ToolTask(PromptTask, ActionsSubtaskOriginMixin):
                 action_dict = json.loads(data)
                 action_dict["tag"] = self.tool.name
                 subtask_input = J2("tasks/tool_task/subtask.j2").render(action_json=json.dumps(action_dict))
-                subtask = self.add_subtask(ActionsSubtask(subtask_input))
+                subtask = self.add_subtask(
+                    ActionsSubtask(subtask_input, log_input=self.log_input, log_output=self.log_output)
+                )
 
                 subtask.before_run()
                 subtask.run()

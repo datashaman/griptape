@@ -131,7 +131,13 @@ class ToolkitTask(PromptTask, ActionsSubtaskOriginMixin):
         self.subtasks.clear()
 
         self.prompt_driver.tokenizer.stop_sequences.extend([self.response_stop_sequence])
-        subtask = self.add_subtask(ActionsSubtask(self.prompt_driver.run(prompt_stack=self.prompt_stack).to_text()))
+        subtask = self.add_subtask(
+            ActionsSubtask(
+                self.prompt_driver.run(prompt_stack=self.prompt_stack).to_text(),
+                log_input=self.log_input,
+                log_output=self.log_output,
+            )
+        )
 
         while True:
             if subtask.output is None:
@@ -146,7 +152,11 @@ class ToolkitTask(PromptTask, ActionsSubtaskOriginMixin):
                     subtask.after_run()
 
                     subtask = self.add_subtask(
-                        ActionsSubtask(self.prompt_driver.run(prompt_stack=self.prompt_stack).to_text())
+                        ActionsSubtask(
+                            self.prompt_driver.run(prompt_stack=self.prompt_stack).to_text(),
+                            log_input=self.log_input,
+                            log_output=self.log_output,
+                        )
                     )
             else:
                 break

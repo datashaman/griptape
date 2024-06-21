@@ -34,6 +34,8 @@ class BaseTask(ABC):
     structure: Optional[Structure] = field(default=None, init=False)
     context: dict[str, Any] = field(factory=dict, kw_only=True)
     futures_executor: futures.Executor = field(default=Factory(lambda: futures.ThreadPoolExecutor()), kw_only=True)
+    log_input: bool = field(default=True, kw_only=True)
+    log_output: bool = field(default=True, kw_only=True)
 
     @property
     @abstractmethod

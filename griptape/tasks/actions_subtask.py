@@ -90,7 +90,7 @@ class ActionsSubtask(BaseTextInputTask):
                 subtask_actions=self.actions_to_dicts(),
             )
         )
-        self.structure.logger.info(f"Subtask {self.id}\n{self.input.to_text()}")
+        self.structure.logger.info(f"Subtask {self.id}\n{self.input.to_text() if self.log_input else self.input.name}")
 
     def run(self) -> BaseArtifact:
         try:
@@ -150,7 +150,7 @@ class ActionsSubtask(BaseTextInputTask):
                 subtask_actions=self.actions_to_dicts(),
             )
         )
-        self.structure.logger.info(f"Subtask {self.id}\nResponse: {response}")
+        self.structure.logger.info(f"Subtask {self.id}\nResponse: {response if self.log_output else self.output.name}")
 
     def actions_to_dicts(self) -> list[dict]:
         json_list = []
