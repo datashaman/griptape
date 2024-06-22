@@ -4,7 +4,7 @@ from griptape.artifacts import ImageArtifact, ListArtifact, TextArtifact
 from griptape.common import ImageMessageContent, MessageStack, TextMessageContent
 
 
-class TestPromptStack:
+class TestMessageStack:
     @pytest.fixture
     def message_stack(self):
         return MessageStack()
