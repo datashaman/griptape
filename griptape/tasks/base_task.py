@@ -147,16 +147,8 @@ class BaseTask(ABC):
 
             return self.output
 
-    def can_task_execute(self, child: BaseTask) -> bool:
-        return True
-
     def can_execute(self) -> bool:
-        return (
-            self.state == BaseTask.State.PENDING
-            and all([parent.is_finished() for parent in self.parents])
-            and (any(res := [parent.can_task_execute(self) for parent in self.parents]) or len(res) == 0)
-        )
-        # return self.state == BaseTask.State.PENDING and all(parent.is_finished() for parent in self.parents)
+        return self.state == BaseTask.State.PENDING and all([parent.is_finished() for parent in self.parents])
 
     def reset(self) -> BaseTask:
         self.state = BaseTask.State.PENDING

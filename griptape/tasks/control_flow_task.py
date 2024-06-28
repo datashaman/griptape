@@ -5,34 +5,23 @@ from typing import Callable, Optional
 
 from attrs import define, field
 
-from griptape.artifacts import BaseArtifact, ErrorArtifact, TextArtifact
+from griptape.artifacts import BaseArtifact, ErrorArtifact, TaskArtifact, ListArtifact
 from griptape.tasks import BaseTask
-from griptape.utils import J2
 from griptape.artifacts import ControlFlowArtifact
 
 
 @define
 class ControlFlowTask(BaseTask, ABC):
-    DEFAULT_INPUT_TEMPLATE = "{{ args[0] }}"
-
-    control_flow_fn: Callable[[BaseArtifact | str], BaseTask | str] = field(metadata={"serializable": False})
-    _input: str | BaseArtifact | Callable[[BaseTask], BaseArtifact] = field(
-        default=DEFAULT_INPUT_TEMPLATE, alias="input"
-    )
-    output: Optional[BaseArtifact] = field(default=None, init=False)
+    control_flow_fn: Callable[
+        [list[BaseTask] | BaseTask], tuple[list[BaseTask | str] | BaseTask | str, BaseArtifact]
+    ] = field(metadata={"serializable": False})
+    control_flow_output: Optional[ControlFlowArtifact | ErrorArtifact] = field(default=None, init=False)
 
     @property
     def input(self) -> BaseArtifact:
-        if isinstance(self._input, BaseArtifact):
-            return self._input
-        elif isinstance(self._input, Callable):
-            return self._input(self)
-        else:
-            return TextArtifact(J2().render_from_string(self._input, **self.full_context))
-
-    @input.setter
-    def input(self, value: str | TextArtifact | Callable[[BaseTask], TextArtifact]) -> None:
-        self._input = value
+        if len(self.parents) == 1:
+            return TaskArtifact(self.parents[0])
+        return ListArtifact([TaskArtifact(parent) for parent in self.parents])
 
     def before_run(self) -> None:
         super().before_run()
@@ -44,23 +33,35 @@ class ControlFlowTask(BaseTask, ABC):
 
         self.structure.logger.info(f"{self.__class__.__name__} {self.id}\nOutput: {self.output.to_text()}")
 
-    def can_task_execute(self, child: BaseTask) -> bool:
-        return super().can_task_execute(child) and self.output is not None and self.output == child
-
     def run(self) -> ControlFlowArtifact | ErrorArtifact:
-        task = self.control_flow_fn(self.input)
-        task_id = task.id if isinstance(task, BaseTask) else task
+        tasks, fn_output = self.control_flow_fn(
+            [artifact.value for artifact in self.input.value]
+            if isinstance(self.input, ListArtifact)
+            else self.input.value
+        )
+        if tasks is None or tasks == []:
+            self.output = ErrorArtifact(f"ControlFlowTask {self.id} did not return any tasks")
+            self.control_flow_output = self.output
+            return self.control_flow_output
 
-        if task_id not in self.child_ids:
-            self.output = ErrorArtifact(f"ControlFlowTask {self.id} did not return a valid child task")
-        else:
-            from griptape.artifacts import TaskArtifact
+        if not isinstance(tasks, list):
+            tasks = [tasks]
 
-            self.output = TaskArtifact(task)
-        for child in filter(lambda child: child != task, self.children):
-            if all(
-                parent.state == BaseTask.State.FINISHED
-                for parent in filter(lambda parent: parent != self, child.parents)
-            ):
-                child.state = BaseTask.State.CANCELLED
-        return self.output
+        tasks = [self.structure.find_task(task) if isinstance(task, str) else task for task in tasks]
+
+        for task in tasks:
+            if task.id not in self.child_ids:
+                self.output = ErrorArtifact(f"ControlFlowTask {self.id} did not return a valid child task")
+                self.control_flow_output = self.output
+            else:
+                from griptape.artifacts import TaskArtifact
+
+                self.control_flow_output = TaskArtifact(task)
+                self.output = fn_output
+            for child in filter(lambda child: child != task, self.children):
+                if all(
+                    parent.state == BaseTask.State.FINISHED
+                    for parent in filter(lambda parent: parent != self, child.parents)
+                ):
+                    child.state = BaseTask.State.CANCELLED
+        return self.control_flow_output  # pyright: ignore
