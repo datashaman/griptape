@@ -23,6 +23,7 @@ class BaseTask(ABC):
         PENDING = 1
         EXECUTING = 2
         FINISHED = 3
+        CANCELLED = 4
 
     id: str = field(default=Factory(lambda: uuid.uuid4().hex), kw_only=True)
     state: State = field(default=State.PENDING, kw_only=True)
@@ -99,7 +100,7 @@ class BaseTask(ABC):
         return self.state == BaseTask.State.PENDING
 
     def is_finished(self) -> bool:
-        return self.state == BaseTask.State.FINISHED
+        return self.state == BaseTask.State.FINISHED or self.state == BaseTask.State.CANCELLED
 
     def is_executing(self) -> bool:
         return self.state == BaseTask.State.EXECUTING
@@ -146,8 +147,16 @@ class BaseTask(ABC):
 
             return self.output
 
+    def can_task_execute(self, child: BaseTask) -> bool:
+        return True
+
     def can_execute(self) -> bool:
-        return self.state == BaseTask.State.PENDING and all(parent.is_finished() for parent in self.parents)
+        return (
+            self.state == BaseTask.State.PENDING
+            and all([parent.is_finished() for parent in self.parents])
+            and (any(res := [parent.can_task_execute(self) for parent in self.parents]) or len(res) == 0)
+        )
+        # return self.state == BaseTask.State.PENDING and all(parent.is_finished() for parent in self.parents)
 
     def reset(self) -> BaseTask:
         self.state = BaseTask.State.PENDING

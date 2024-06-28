@@ -112,7 +112,6 @@ class Workflow(Structure):
             for future in futures.as_completed(futures_list):
                 if isinstance(future.result(), ErrorArtifact) and self.fail_fast:
                     exit_loop = True
-
                     break
 
         if self.conversation_memory and self.output is not None:
